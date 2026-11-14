@@ -1,4 +1,4 @@
-# EyeForEye-Integrity
+# Eyesore
 
 **A C++17 foundation for voice synthesis, phoneme-aware positioning, and audio integrity work.**
 
