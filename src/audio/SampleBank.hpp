@@ -16,7 +16,7 @@ public:
  LoadReport loadDirectory(const std::filesystem::path&);
  const AudioBuffer* getPhoneme(const std::string&)const noexcept;
  const AudioBuffer* getNearest(const std::string&,int targetNote)const noexcept;
- const AudioBuffer* getPitched(const AudioBuffer* source, double pitchRatio);
+ const AudioBuffer* getPitched(const AudioBuffer* source, double pitchRatio) const;
  std::size_t size()const noexcept{return byPhoneme_.size();}
  void clear()noexcept;
 private:
@@ -36,8 +36,8 @@ private:
  };
  std::unordered_map<std::string,std::unordered_map<int,std::size_t>>byPhoneme_;
  std::deque<AudioBuffer>buffers_;
- std::unordered_map<PitchKey,std::size_t,PitchKeyHash>pitchCache_;
+ mutable std::unordered_map<PitchKey,std::size_t,PitchKeyHash>pitchCache_;
  // deque preserves addresses returned to voices as later pitches are cached.
- std::deque<AudioBuffer>pitchedBuffers_;
+ mutable std::deque<AudioBuffer>pitchedBuffers_;
 };
 } // namespace eye
