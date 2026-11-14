@@ -12,12 +12,19 @@ void Renderer::noteOn(std::uint8_t note,std::uint8_t vel,double,const Params&p)n
  const auto*source=bank_->getNearest("ah",targetMidi);
  if(!source||source->samples.size()<2||!source->sampleRate)return;
  const double semitoneRatio=std::pow(2.0,static_cast<double>(targetMidi-source->rootNote)/12.0);
- const AudioBuffer*pitched=nullptr;
- try { pitched=bank_->getPitched(source,semitoneRatio); }
- catch (...) { return; } // noteOn is noexcept; allocation failure must not terminate the host.
- if(!pitched)return;
+ // The phase-vocoder cache supports +/-24 semitones. Outside that range,
+ // retain the source and use playback-rate transposition rather than dropping
+ // a valid MIDI note. This fallback changes duration, but remains audible.
+ const bool useRateFallback=semitoneRatio<0.25||semitoneRatio>4.0;
+ const AudioBuffer*pitched=source;
+ if(!useRateFallback){
+  try { pitched=bank_->getPitched(source,semitoneRatio); }
+  catch (...) { return; } // noteOn is noexcept; allocation failure must not terminate the host.
+  if(!pitched)return;
+ }
  const double bend=std::isfinite(p.pitchBendSemis)?std::clamp(static_cast<double>(p.pitchBendSemis),-48.0,48.0):0.0;
- const double ratio=(static_cast<double>(pitched->sampleRate)/sampleRate_)*std::pow(2.0,bend/12.0);
+ const double pitchRatio=useRateFallback?semitoneRatio:1.0;
+ const double ratio=(static_cast<double>(pitched->sampleRate)/sampleRate_)*pitchRatio*std::pow(2.0,bend/12.0);
  if(!std::isfinite(ratio)||ratio<=0)return;
  Voice*v=allocVoice();v->sample=pitched;v->pos=0;v->midiNote=static_cast<int>(note);v->gain=static_cast<float>(vel)/127.0f;v->ratio=ratio;v->active=true;v->env.prepare(sampleRate_);v->env.setParams(.01f,.10f,.85f,.20f);v->env.noteOn();
 }
