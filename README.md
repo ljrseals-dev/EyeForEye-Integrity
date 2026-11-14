@@ -2,15 +2,17 @@
 
 **A C++17 foundation for voice synthesis, phoneme-aware positioning, and audio integrity work.**
 
-This repository is the sanitized public project baseline. It intentionally contains only the buildable foundation authored for this repository; it does not claim that the complete synthesis engine, sample library, patent materials, or any external model assets have been imported.
+This repository is the sanitized public project baseline. It does not claim that external sample libraries, model assets, unpublished patent materials, or private archives have been imported.
 
-## Current scope
+## Current implementation
 
-- Framework-free C++17 library foundation
-- CMake build and CTest integration
-- Small version/API smoke test
-- No network access, telemetry, automatic downloads, or build-time dependency fetching
-- No audio-thread file I/O or dynamic allocation is introduced by this baseline
+- C++17 core build with CMake and CTest
+- Bounded PositionMap with synchronized access and versioned little-endian serialization
+- Major, natural-minor, pentatonic, chromatic, and custom-mask scale snapping
+- Sample-rate-aware ADSR envelope
+- RIFF/WAVE PCM and IEEE-float reader with chunk-boundary and truncation checks
+- SampleBank with deterministic path ordering and stable buffer addresses during append
+- Fixed-polyphony sample renderer and functional artifact harness
 
 ## Build
 
@@ -22,9 +24,13 @@ ctest --test-dir build --output-on-failure
 
 Requires CMake 3.20+ and a C++17 compiler.
 
-## Project status
+## Safety and scope boundaries
 
-This is a **foundation build**, not a completed voice engine. DSP, MIDI/position-map behavior, sample-bank ingestion, AU wrappers, and host integration remain unimplemented until their source and interfaces are reviewed and imported. No performance, latency, similarity, or audio-quality claims are made.
+- PositionMap uses a mutex to make concurrent access data-race-safe. Its methods may block and are **not real-time safe**; do not call record, reset, deserialize, or serialize from an audio callback.
+- SampleBank append preserves existing AudioBuffer addresses through deque storage. Loading and clearing must still be externally serialized against rendering; clear invalidates returned pointers.
+- Renderer uses caller-owned buffers and does not perform file I/O. No claim of complete host-level real-time safety, lock freedom, or production audio quality is made.
+- The WAV reader supports RIFF/WAVE PCM 16/24/32-bit and IEEE float 32/64-bit mono-downmixed input. RIFX, WAVE64, compressed formats, and extensible subformat GUID validation are outside this milestone.
+- Renderer currently selects the fixed `AH` phoneme. PositionMap-driven syllable selection, pitch shifting, cache prewarming, parser strategies, and AU integration are deferred.
 
 ## Sanitization boundary
 
