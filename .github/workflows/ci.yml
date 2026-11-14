@@ -1,4 +1,4 @@
-name: C++17 CI
+name: C++17 and Python DSP CI
 
 on:
   push:
@@ -19,3 +19,15 @@ jobs:
         run: cmake --build build --parallel 2
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  python-dsp-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install DSP test dependencies
+        run: python -m pip install "numpy>=1.23" "pytest>=7"
+      - name: Test local vocal DSP
+        run: python -m pytest -q
