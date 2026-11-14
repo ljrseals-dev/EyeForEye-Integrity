@@ -31,12 +31,14 @@ add_library(eye_core STATIC
     src/audio/WavReader.cpp
     src/audio/SampleBank.cpp
     src/audio/Renderer.cpp
+    src/dsp/FFT.cpp
+    src/dsp/PitchShifter.cpp
 )
 target_include_directories(eye_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(eye_core PUBLIC cxx_std_17)
 set_target_properties(eye_core PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
 if(MSVC)
-    target_compile_options(eye_core PRIVATE /W4 /permissive-)
+    target_compile_options(eye_core PRIVATE /W4 /permissive- /Wshadow)
 else()
     target_compile_options(eye_core PRIVATE -Wall -Wextra -Wpedantic -Wshadow)
 endif()
@@ -55,6 +57,10 @@ if(EYEFOREYE_BUILD_TESTS)
     add_executable(test_scale_engine tests/test_scale_engine.cpp)
     target_link_libraries(test_scale_engine PRIVATE eye_core)
     add_test(NAME scale_engine COMMAND test_scale_engine)
+
+    add_executable(test_pitch_shifter tests/test_pitch_shifter.cpp)
+    target_link_libraries(test_pitch_shifter PRIVATE eye_core)
+    add_test(NAME pitch_shifter COMMAND test_pitch_shifter)
 
     add_executable(artifact_harness src/harness/ArtifactHarness.cpp)
     target_link_libraries(artifact_harness PRIVATE eye_core)
