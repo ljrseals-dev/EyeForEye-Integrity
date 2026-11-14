@@ -7,12 +7,26 @@ namespace eye {
 void Renderer::prepare(double sr,std::size_t)noexcept{sampleRate_=(std::isfinite(sr)&&sr>0)?sr:48000;for(auto&v:voices_){v=Voice{};v.env.prepare(sampleRate_);}activeCount_=rrCursor_=0;}
 Renderer::Voice*Renderer::allocVoice()noexcept{for(auto&v:voices_)if(!v.active)return &v;Voice*v=&voices_[rrCursor_];rrCursor_=(rrCursor_+1)%kMaxVoices;return v;}
 void Renderer::noteOn(std::uint8_t note,std::uint8_t vel,double,const Params&p)noexcept{
- if(!bank_||vel==0)return;const auto*b=bank_->getNearest("ah",note);if(!b||b->samples.size()<2||!b->sampleRate)return;
+ if(!bank_||vel==0)return;
+ const int targetMidi=(p.scaleEnabled&&scale_)?scale_->snappedMidi(static_cast<int>(note)):static_cast<int>(note);
+ const auto*source=bank_->getNearest("ah",targetMidi);
+ if(!source||source->samples.size()<2||!source->sampleRate)return;
+ const double semitoneRatio=std::pow(2.0,static_cast<double>(targetMidi-source->rootNote)/12.0);
+ // The phase-vocoder cache supports +/-24 semitones. Outside that range,
+ // retain the source and use playback-rate transposition rather than dropping
+ // a valid MIDI note. This fallback changes duration, but remains audible.
+ const bool useRateFallback=semitoneRatio<0.25||semitoneRatio>4.0;
+ const AudioBuffer*pitched=source;
+ if(!useRateFallback){
+  try { pitched=bank_->getPitched(source,semitoneRatio); }
+  catch (...) { return; } // noteOn is noexcept; allocation failure must not terminate the host.
+  if(!pitched)return;
+ }
  const double bend=std::isfinite(p.pitchBendSemis)?std::clamp(static_cast<double>(p.pitchBendSemis),-48.0,48.0):0.0;
- double pitchRatio=std::pow(2.0,(static_cast<int>(note)-b->rootNote)/12.0);
- if(p.scaleEnabled&&scale_){const double fromRoot=scale_->getPitchRatio(static_cast<int>(note));const double rootOffset=std::pow(2.0,(scale_->rootNote()-b->rootNote)/12.0);pitchRatio=fromRoot*rootOffset;}
- const double ratio=(static_cast<double>(b->sampleRate)/sampleRate_)*pitchRatio*std::pow(2.0,bend/12.0);if(!std::isfinite(ratio)||ratio<=0)return;
- Voice*v=allocVoice();v->sample=b;v->pos=0;v->midiNote=note;v->gain=static_cast<float>(vel)/127.0f;v->ratio=ratio;v->active=true;v->env.prepare(sampleRate_);v->env.setParams(.01f,.10f,.85f,.20f);v->env.noteOn();
+ const double pitchRatio=useRateFallback?semitoneRatio:1.0;
+ const double ratio=(static_cast<double>(pitched->sampleRate)/sampleRate_)*pitchRatio*std::pow(2.0,bend/12.0);
+ if(!std::isfinite(ratio)||ratio<=0)return;
+ Voice*v=allocVoice();v->sample=pitched;v->pos=0;v->midiNote=static_cast<int>(note);v->gain=static_cast<float>(vel)/127.0f;v->ratio=ratio;v->active=true;v->env.prepare(sampleRate_);v->env.setParams(.01f,.10f,.85f,.20f);v->env.noteOn();
 }
 void Renderer::noteOff(std::uint8_t n)noexcept{for(auto&v:voices_)if(v.active&&v.midiNote==static_cast<int>(n))v.env.noteOff();}
 void Renderer::process(float*out,std::size_t count,const MidiEvent*events,std::size_t eventCount,double beat,const Params&p)noexcept{

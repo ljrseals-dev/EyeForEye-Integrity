@@ -1,0 +1,13 @@
+[project]
+name = "eyesore-audio"
+version = "0.1.0"
+description = "Offline F0 analysis and bounded local vocal compression"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.pytest.ini_options]
+pythonpath = ["python"]
+testpaths = ["python_tests"]

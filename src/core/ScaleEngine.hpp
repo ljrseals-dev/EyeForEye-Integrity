@@ -13,6 +13,7 @@ public:
     double getPitchRatio(int midiNote) const noexcept;
     float getCentsDeviation(int midiNote) const noexcept;
     std::uint8_t snapPitchClass(std::uint8_t pc) const noexcept;
+    int snappedMidi(int midiNote) const noexcept;
     const std::array<bool,12>& mask() const noexcept { return mask_; }
 private:
     static const std::array<bool,12>& builtinMask(ScaleType) noexcept;
