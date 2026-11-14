@@ -26,7 +26,9 @@ bool loadWav(const std::filesystem::path&path,AudioBuffer&out,int rootNote)noexc
   const std::uint64_t riffEnd=static_cast<std::uint64_t>(u32(hdr+4))+8u;if(riffEnd>fileSize||riffEnd<12)return false;
   std::uint16_t fmt=0,ch=0,bits=0;std::uint32_t sr=0;std::vector<std::uint8_t>pcm;bool haveFmt=false,haveData=false;std::uint64_t pos=12;
   while(pos+8<=riffEnd){f.seekg(static_cast<std::streamoff>(pos));std::uint8_t h[8]{};f.read(reinterpret_cast<char*>(h),8);if(!f)return false;const std::uint32_t n=u32(h+4);const std::uint64_t body=pos+8u;if(static_cast<std::uint64_t>(n)>riffEnd-body)return false;
-   if(std::memcmp(h,"fmt ",4)==0){if(n<16||n>4096)return false;std::vector<std::uint8_t>b(n);f.read(reinterpret_cast<char*>(b.data()),static_cast<std::streamsize>(n));if(!f)return false;fmt=u16(b.data());ch=u16(b.data()+2);sr=u32(b.data()+4);bits=u16(b.data()+14);if(fmt==0xfffe)return false; // Extensible GUIDs are intentionally unsupported until fully validated.haveFmt=true;}
+   if(std::memcmp(h,"fmt ",4)==0){if(n<16||n>4096)return false;std::vector<std::uint8_t>b(n);f.read(reinterpret_cast<char*>(b.data()),static_cast<std::streamsize>(n));if(!f)return false;fmt=u16(b.data());ch=u16(b.data()+2);sr=u32(b.data()+4);bits=u16(b.data()+14);if(fmt==0xfffe)return false; // Extensible GUIDs are intentionally unsupported until fully validated.
+   haveFmt=true;
+  }
    else if(std::memcmp(h,"data",4)==0){if(!n)return false;pcm.resize(n);f.read(reinterpret_cast<char*>(pcm.data()),static_cast<std::streamsize>(n));if(!f)return false;haveData=true;}
    pos=body+static_cast<std::uint64_t>(n)+(n&1u);if(pos>riffEnd)return false;
   }
