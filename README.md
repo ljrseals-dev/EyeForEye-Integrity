@@ -29,7 +29,7 @@ Requires CMake 3.20+ and a C++17 compiler.
 - PositionMap uses a mutex to make concurrent access data-race-safe. Its methods may block and are **not real-time safe**; do not call record, reset, deserialize, or serialize from an audio callback.
 - SampleBank append preserves existing AudioBuffer addresses through deque storage. Loading and clearing must still be externally serialized against rendering; clear invalidates returned pointers.
 - Renderer uses caller-owned buffers and does not perform file I/O. No claim of complete host-level real-time safety, lock freedom, or production audio quality is made.
-- The WAV reader supports RIFF/WAVE PCM 16/24/32-bit and IEEE float 32/64-bit mono-downmixed input. RIFX, WAVE64, compressed formats, and extensible subformat GUID validation are outside this milestone.
+- The WAV reader supports RIFF/WAVE PCM 16/24/32-bit and IEEE float 32/64-bit mono-downmixed input. RIFX, WAVE64, WAVE_FORMAT_EXTENSIBLE, and compressed formats are rejected.
 - Renderer currently selects the fixed `AH` phoneme. PositionMap-driven syllable selection, pitch shifting, cache prewarming, parser strategies, and AU integration are deferred.
 
 ## Sanitization boundary
