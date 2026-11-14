@@ -1,14 +1,15 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(EyeForEye-Integrity
+project(Eyesore
     VERSION 0.1.0
-    DESCRIPTION "C++17 voice synthesis and audio integrity foundation"
+    DESCRIPTION "C++17 voice synthesis and audio integrity engine"
     LANGUAGES CXX
 )
 
-option(EYEFOREYE_BUILD_TESTS "Build the project tests" ON)
+option(EYESORE_BUILD_TESTS "Build the Eyesore project tests" ON)
 
 add_library(eye_for_eye src/version.cpp)
+add_library(Eyesore::Core ALIAS eye_for_eye)
 add_library(EyeForEye::Core ALIAS eye_for_eye)
 target_compile_features(eye_for_eye PUBLIC cxx_std_17)
 target_include_directories(eye_for_eye
@@ -43,12 +44,12 @@ else()
     target_compile_options(eye_core PRIVATE -Wall -Wextra -Wpedantic -Wshadow)
 endif()
 
-if(EYEFOREYE_BUILD_TESTS)
+if(EYESORE_BUILD_TESTS)
     enable_testing()
     add_executable(eye_for_eye_tests tests/test_version.cpp)
-    target_link_libraries(eye_for_eye_tests PRIVATE EyeForEye::Core)
+    target_link_libraries(eye_for_eye_tests PRIVATE Eyesore::Core)
     target_compile_features(eye_for_eye_tests PRIVATE cxx_std_17)
-    add_test(NAME eye_for_eye_tests COMMAND eye_for_eye_tests)
+    add_test(NAME eyesore_version COMMAND eye_for_eye_tests)
 
     add_executable(test_position_map tests/test_position_map.cpp)
     target_link_libraries(test_position_map PRIVATE eye_core)
