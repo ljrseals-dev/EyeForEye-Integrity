@@ -7,7 +7,7 @@ namespace eye {
 void Renderer::prepare(double sr,std::size_t)noexcept{sampleRate_=(std::isfinite(sr)&&sr>0)?sr:48000;for(auto&v:voices_){v=Voice{};v.env.prepare(sampleRate_);}activeCount_=rrCursor_=0;}
 Renderer::Voice*Renderer::allocVoice()noexcept{for(auto&v:voices_)if(!v.active)return &v;Voice*v=&voices_[rrCursor_];rrCursor_=(rrCursor_+1)%kMaxVoices;return v;}
 void Renderer::noteOn(std::uint8_t note,std::uint8_t vel,double,const Params&p)noexcept{
- if(!bank_||vel==0)return;const auto*b=bank_->getNearest("AH",note);if(!b||b->samples.size()<2||!b->sampleRate)return;
+ if(!bank_||vel==0)return;const auto*b=bank_->getNearest("ah",note);if(!b||b->samples.size()<2||!b->sampleRate)return;
  const double bend=std::isfinite(p.pitchBendSemis)?std::clamp(static_cast<double>(p.pitchBendSemis),-48.0,48.0):0.0;
  double pitchRatio=std::pow(2.0,(static_cast<int>(note)-b->rootNote)/12.0);
  if(p.scaleEnabled&&scale_){const double fromRoot=scale_->getPitchRatio(static_cast<int>(note));const double rootOffset=std::pow(2.0,(scale_->rootNote()-b->rootNote)/12.0);pitchRatio=fromRoot*rootOffset;}
