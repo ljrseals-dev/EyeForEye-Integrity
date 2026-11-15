@@ -66,6 +66,7 @@ def run_check(
             git(repo, "commit", "-qm", "unrelated root")
             required = git(repo, "rev-parse", "HEAD")
             git(repo, "checkout", "--detach", base)
+            (repo / "unrelated.txt").unlink()
 
         ledger = json.loads(json.dumps(LEDGER if ledger_data is None else ledger_data))
         if ledger_text is None:
