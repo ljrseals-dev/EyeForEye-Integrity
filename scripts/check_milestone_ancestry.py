@@ -14,11 +14,11 @@ from pathlib import Path
 # ("Milestone 5b: ..."). The suffix is part of the token, so M5b cannot
 # be truncated to M5. IGNORECASE also accepts "Milestone 4".
 MILESTONE_PATTERN = re.compile(
-    r"\\b(?:milestone\\s+(?P<spelled>M?\\d+[a-z]?)|(?P<short>M\\d+[a-z]?))\\b",
+    r"\b(?:milestone\s+(?P<spelled>M?\d+[a-z]?)|(?P<short>M\d+[a-z]?))\b",
     re.IGNORECASE,
 )
 BODY_MILESTONE_PATTERN = re.compile(
-    r"(?im)^Milestone:\\s*(M?\\d+[a-z]?)\\s*$"
+    r"(?im)^Milestone:\s*(M?\d+[a-z]?)\s*$"
 )
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
@@ -28,7 +28,7 @@ def normalize_milestone(value: str) -> str:
     token = value.upper()
     if token.startswith("M"):
         token = token[1:]
-    suffix_match = re.fullmatch(r"(\\d+)([A-Z]?)", token)
+    suffix_match = re.fullmatch(r"(\d+)([A-Z]?)", token)
     if suffix_match is None:
         raise ValueError(f"invalid milestone identifier: {value!r}")
     number, suffix = suffix_match.groups()
@@ -116,7 +116,7 @@ def main() -> int:
             "the predecessor milestone must be merged and recorded before this PR opens"
         )
 
-    declaration = re.search(r"(?im)^Milestone-Ancestors:\\s*(.+)$", body)
+    declaration = re.search(r"(?im)^Milestone-Ancestors:\s*(.+)$", body)
     if not declaration:
         return fail("PR body must contain 'Milestone-Ancestors: <full SHA>'")
 
