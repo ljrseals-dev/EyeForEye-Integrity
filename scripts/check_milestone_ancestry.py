@@ -19,9 +19,9 @@ MILESTONE_PATTERN = re.compile(
     r"(?![A-Za-z0-9_])",
     re.IGNORECASE,
 )
-BODY_MILESTONE_PATTERN = re.compile(r"(?im)^Milestone:\s*(.*?)\s*$")
+BODY_MILESTONE_PATTERN = re.compile(r"(?im)^[ \t]*Milestone:[ \t]*(.*?)[ \t]*$")
 ANCESTOR_DECLARATION_PATTERN = re.compile(
-    r"(?im)^Milestone-Ancestors:\s*(.*?)\s*$"
+    r"(?im)^[ \t]*Milestone-Ancestors:[ \t]*(.*?)[ \t]*$"
 )
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
