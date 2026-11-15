@@ -4,6 +4,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -33,6 +34,8 @@ jobs:
         run: python -m pytest -q
 
   milestone-ancestry:
+    # Push events have no pull_request title/body payload. Do not treat a push
+    # as milestone-validated; enforcement is deliberately tied to PR events.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
