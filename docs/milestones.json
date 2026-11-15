@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "repository": "ljrseals-dev/Eyesore",
+  "verified_history": [
+    {
+      "id": "baseline",
+      "pull_request": 1,
+      "title": "Add sanitized C++17 public baseline",
+      "merge_commit": "2803ef5b8bf1e3a44367592dfcbe0e4a1ab1dd9e",
+      "status": "merged"
+    },
+    {
+      "id": "M2",
+      "pull_request": 2,
+      "title": "Milestone 2: C++17 DSP and sample foundation",
+      "merge_commit": "500fa220763cbd572737120c9ca9e90934b14e26",
+      "status": "merged",
+      "predecessor": "baseline"
+    },
+    {
+      "id": "M3",
+      "pull_request": 3,
+      "title": "Milestone 3: phase-vocoder pitch shifting",
+      "merge_commit": "68709ea6a1131815aef3adca35223dc09e7cb807",
+      "status": "merged",
+      "predecessor": "M2"
+    },
+    {
+      "id": "integration",
+      "pull_request": 4,
+      "title": "Integrate phase-vocoder and local vocal F0/compressor pipeline",
+      "merge_commit": "deb8efa3fdb4194c854ad5188cec5ebc755eba93",
+      "status": "merged",
+      "predecessor": "M2",
+      "note": "Integration PR merged from the M2 base; M3 is independently verified as an ancestor of the current baseline."
+    },
+    {
+      "id": "documentation",
+      "pull_request": 5,
+      "title": "Document engineering architecture, flowchart, and diagnostics",
+      "merge_commit": "590cbe0d702419beb11c156b5c5219beb5c53880",
+      "status": "merged",
+      "predecessor": "integration"
+    },
+    {
+      "id": "baseline-hardening",
+      "pull_request": 6,
+      "title": "Reject float32 overflow and expand F0 regression coverage",
+      "merge_commit": "a9fb39643ee939b488e121a8d7e193030b6db423",
+      "status": "merged",
+      "predecessor": "documentation"
+    }
+  ],
+  "current_baseline": "a9fb39643ee939b488e121a8d7e193030b6db423",
+  "future_milestones": {
+    "M3b": {
+      "status": "not_started",
+      "required_predecessor": "a9fb39643ee939b488e121a8d7e193030b6db423"
+    },
+    "M3c": {
+      "status": "not_started",
+      "required_predecessor": null
+    },
+    "M4": {
+      "status": "not_started",
+      "required_predecessor": null
+    },
+    "M5": {
+      "status": "not_started",
+      "required_predecessor": null
+    },
+    "M5b": {
+      "status": "not_started",
+      "required_predecessor": null,
+      "integration": "separate post-M5 commit on main after successful macOS auval gate"
+    },
+    "M6": {
+      "status": "not_started",
+      "required_predecessor": null
+    }
+  }
+}
