@@ -63,7 +63,9 @@ def main() -> int:
         )
         return 0
 
-    title = str(pull_request.get("title", ""))
+    title = pull_request.get("title")
+    if not isinstance(title, str) or not title.strip():
+        return fail("pull_request payload is missing a valid title")
     title_matches = list(MILESTONE_PATTERN.finditer(title))
     if not title_matches:
         print("milestone ancestry: PR title is not a gated future milestone; skipped")
