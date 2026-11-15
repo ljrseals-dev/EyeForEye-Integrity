@@ -114,7 +114,7 @@ def run_check(
 )
 def test_supported_title_forms_pass_with_valid_ancestor(title: str) -> None:
     milestone = "M5b" if "5b" in title.lower() else "M3b"
-    body = f"Milestone: {milestone}\nMilestone-Ancestors: {sha}"
+    body = f"Milestone: {milestone}\nMilestone-Ancestors: {{sha}}"
     code, out, err = run_check(title, body)
     assert code == 0, err
     assert "descends from" in out
@@ -323,7 +323,7 @@ def test_unknown_milestone_ids_fail_closed_instead_of_skipping(
     title: str, milestone: str
 ) -> None:
     code, out, err = run_check(
-        title, f"Milestone: {milestone}\nMilestone-Ancestors: {sha}"
+        title, f"Milestone: {milestone}\nMilestone-Ancestors: {{sha}}"
     )
     assert code == 1
     assert "no matching future_milestones entry" in err
