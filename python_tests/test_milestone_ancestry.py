@@ -54,10 +54,22 @@ def run_check(
         git(repo, "commit", "-qm", "base")
         base = git(repo, "rev-parse", "HEAD")
 
+        if ancestor_ok:
+            required = base
+        else:
+            # The predecessor must be a real commit object, but on a separate
+            # root history so merge-base returns 1 (not an invalid-object error).
+            git(repo, "checkout", "--orphan", "unrelated")
+            git(repo, "rm", "-rf", ".")
+            (repo / "unrelated.txt").write_text("unrelated", encoding="utf-8")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-qm", "unrelated root")
+            required = git(repo, "rev-parse", "HEAD")
+            git(repo, "checkout", "--detach", base)
+
         ledger = json.loads(json.dumps(LEDGER if ledger_data is None else ledger_data))
         if ledger_text is None:
             future = ledger.get("future_milestones", {})
-            required = base if ancestor_ok else "0" * 40
             for name in record:
                 if name in future and isinstance(future[name], dict):
                     future[name]["required_predecessor"] = required
@@ -72,7 +84,7 @@ def run_check(
                 "pull_request": {
                     "title": title,
                     "body": body.replace("{sha}", base).replace(
-                        "{required}", base if ancestor_ok else "0" * 40
+                        "{required}", required
                     ),
                 }
             }
@@ -201,7 +213,7 @@ def test_malformed_body_milestone_declaration_is_rejected() -> None:
 
 def test_unrecorded_predecessor_fails_closed() -> None:
     code, out, err = run_check(
-        "M4 - parsers", "Milestone-Ancestors: {sha}", record=("M4",)
+        "M4 - parsers", "Milestone-Ancestors: {sha}", record=()
     )
     assert code == 1
     assert "predecessor SHA is not recorded" in err
