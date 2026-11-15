@@ -66,11 +66,22 @@ def main() -> int:
     title = pull_request.get("title")
     if not isinstance(title, str) or not title.strip():
         return fail("pull_request payload is missing a valid title")
-    title_matches = list(MILESTONE_PATTERN.finditer(title))
-    if not title_matches:
-        print("milestone ancestry: PR title is not a gated future milestone; skipped")
-        return 0
 
+    body = str(pull_request.get("body") or "")
+    body_matches = list(BODY_MILESTONE_PATTERN.finditer(body))
+    if len(body_matches) != 1:
+        return fail("PR body must contain exactly one 'Milestone: <ID|none>' declaration")
+
+    raw_body_milestone = body_matches[0].group(1).strip()
+    if raw_body_milestone.lower() == "none":
+        body_milestone = None
+    else:
+        try:
+            body_milestone = normalize_milestone(raw_body_milestone)
+        except ValueError:
+            return fail("PR body 'Milestone:' must be 'none' or a valid ID such as M5b")
+
+    title_matches = list(MILESTONE_PATTERN.finditer(title))
     try:
         title_milestones = {
             normalize_milestone(match.group("spelled") or match.group("short"))
@@ -78,12 +89,32 @@ def main() -> int:
         }
     except ValueError as exc:
         return fail(str(exc))
-    if len(title_milestones) != 1:
+
+    if len(title_milestones) > 1:
         return fail(
             "PR title names multiple milestone identifiers: "
             + ", ".join(sorted(title_milestones))
         )
+
+    if not title_milestones:
+        if body_milestone is not None:
+            return fail(
+                f"PR body declares {body_milestone}, but the title does not identify a milestone"
+            )
+        print(
+            "milestone ancestry: PR explicitly declares Milestone: none; skipped"
+        )
+        return 0
+
     milestone = title_milestones.pop()
+    if body_milestone is None:
+        return fail(
+            f"PR title identifies {milestone}, but PR body declares Milestone: none"
+        )
+    if body_milestone != milestone:
+        return fail(
+            f"PR title identifies {milestone}, but PR body declares {body_milestone}"
+        )
 
     ledger_path = Path("docs/milestones.json")
     try:
@@ -104,20 +135,6 @@ def main() -> int:
             f"title identifies {milestone}, but docs/milestones.json has no "
             f"matching future_milestones entry (known: {known})"
         )
-
-    body = str(pull_request.get("body") or "")
-    body_matches = list(BODY_MILESTONE_PATTERN.finditer(body))
-    if len(body_matches) > 1:
-        return fail("PR body must contain at most one 'Milestone:' declaration")
-    if body_matches:
-        try:
-            body_milestone = normalize_milestone(body_matches[0].group(1).strip())
-        except ValueError:
-            return fail("PR body 'Milestone:' declaration must be a valid ID such as M5b")
-        if body_milestone != milestone:
-            return fail(
-                f"PR title identifies {milestone}, but PR body declares {body_milestone}"
-            )
 
     required = entry.get("required_predecessor")
     if not isinstance(required, str) or not SHA_PATTERN.fullmatch(required):
