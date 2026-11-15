@@ -10,15 +10,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Accept both compact titles ("M5b: ...") and spelled-out titles
-# ("Milestone 5b: ..."). The suffix is part of the token, so M5b cannot
-# be truncated to M5. IGNORECASE also accepts "Milestone 4".
+# A milestone is a complete title token. The explicit boundaries prevent
+# matching identifiers embedded in words, while the numeric/suffix grammar
+# ensures M5b is never truncated to M5. Unknown milestone IDs fail closed
+# against the ledger rather than silently bypassing the gate.
 MILESTONE_PATTERN = re.compile(
-    r"\b(?:milestone\s+(?P<spelled>M?\d+[a-z]?)|(?P<short>M\d+[a-z]?))\b",
+    r"(?<![A-Za-z0-9_])"
+    r"(?:milestone[\\s_-]+(?P<spelled>M?\\d+[a-z]?)|(?P<short>M\\d+[a-z]?))"
+    r"(?![A-Za-z0-9_])",
     re.IGNORECASE,
 )
-BODY_MILESTONE_PATTERN = re.compile(
-    r"(?im)^Milestone:\s*(M?\d+[a-z]?)\s*$"
+BODY_MILESTONE_PATTERN = re.compile(r"(?im)^Milestone:\\s*(.*?)\\s*$")
+ANCESTOR_DECLARATION_PATTERN = re.compile(
+    r"(?im)^Milestone-Ancestors:\\s*(.*?)\\s*$"
 )
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
@@ -28,7 +32,7 @@ def normalize_milestone(value: str) -> str:
     token = value.upper()
     if token.startswith("M"):
         token = token[1:]
-    suffix_match = re.fullmatch(r"(\d+)([A-Z]?)", token)
+    suffix_match = re.fullmatch(r"(\\d+)([A-Z]?)", token)
     if suffix_match is None:
         raise ValueError(f"invalid milestone identifier: {value!r}")
     number, suffix = suffix_match.groups()
@@ -49,6 +53,8 @@ def main() -> int:
         event = json.loads(Path(event_path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return fail(f"cannot read GitHub event payload: {exc}")
+    if not isinstance(event, dict):
+        return fail("GitHub event payload must be a JSON object")
 
     pull_request = event.get("pull_request")
     if not isinstance(pull_request, dict):
@@ -64,10 +70,13 @@ def main() -> int:
         print("milestone ancestry: PR title is not a gated future milestone; skipped")
         return 0
 
-    title_milestones = {
-        normalize_milestone(match.group("spelled") or match.group("short"))
-        for match in title_matches
-    }
+    try:
+        title_milestones = {
+            normalize_milestone(match.group("spelled") or match.group("short"))
+            for match in title_matches
+        }
+    except ValueError as exc:
+        return fail(str(exc))
     if len(title_milestones) != 1:
         return fail(
             "PR title names multiple milestone identifiers: "
@@ -80,8 +89,10 @@ def main() -> int:
         ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return fail(f"cannot read {ledger_path}: {exc}")
+    if not isinstance(ledger, dict):
+        return fail(f"{ledger_path} must contain a JSON object")
 
-    future_milestones = ledger.get("future_milestones", {})
+    future_milestones = ledger.get("future_milestones")
     if not isinstance(future_milestones, dict):
         return fail("future_milestones must be an object in docs/milestones.json")
 
@@ -94,20 +105,18 @@ def main() -> int:
         )
 
     body = str(pull_request.get("body") or "")
-    body_declarations = {
-        normalize_milestone(match.group(1))
-        for match in BODY_MILESTONE_PATTERN.finditer(body)
-    }
-    if len(body_declarations) > 1:
-        return fail(
-            "PR body contains conflicting Milestone declarations: "
-            + ", ".join(sorted(body_declarations))
-        )
-    if body_declarations and milestone not in body_declarations:
-        return fail(
-            f"PR title identifies {milestone}, but PR body declares "
-            f"{next(iter(body_declarations))}"
-        )
+    body_matches = list(BODY_MILESTONE_PATTERN.finditer(body))
+    if len(body_matches) > 1:
+        return fail("PR body must contain at most one 'Milestone:' declaration")
+    if body_matches:
+        try:
+            body_milestone = normalize_milestone(body_matches[0].group(1).strip())
+        except ValueError:
+            return fail("PR body 'Milestone:' declaration must be a valid ID such as M5b")
+        if body_milestone != milestone:
+            return fail(
+                f"PR title identifies {milestone}, but PR body declares {body_milestone}"
+            )
 
     required = entry.get("required_predecessor")
     if not isinstance(required, str) or not SHA_PATTERN.fullmatch(required):
@@ -116,11 +125,15 @@ def main() -> int:
             "the predecessor milestone must be merged and recorded before this PR opens"
         )
 
-    declaration = re.search(r"(?im)^Milestone-Ancestors:\s*(.+)$", body)
-    if not declaration:
-        return fail("PR body must contain 'Milestone-Ancestors: <full SHA>'")
+    declarations = list(ANCESTOR_DECLARATION_PATTERN.finditer(body))
+    if len(declarations) != 1:
+        return fail(
+            "PR body must contain exactly one 'Milestone-Ancestors: <full SHA>' declaration"
+        )
 
-    declared = declaration.group(1).strip().split()
+    declared = declarations[0].group(1).split()
+    if not declared or any(not SHA_PATTERN.fullmatch(value) for value in declared):
+        return fail("Milestone-Ancestors must contain one or more full 40-character SHAs")
     if required not in declared:
         return fail(f"PR declaration omits required predecessor SHA {required}")
 
