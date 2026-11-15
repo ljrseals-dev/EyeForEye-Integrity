@@ -57,8 +57,8 @@ def run_check(
         if ancestor_ok:
             required = base
         else:
-            # The predecessor must be a real commit object, but on a separate
-            # root history so merge-base returns 1 (not an invalid-object error).
+            # A real commit on a separate root history makes merge-base return
+            # 1, proving that the script reaches the ancestry check.
             git(repo, "checkout", "--orphan", "unrelated")
             git(repo, "rm", "-rf", ".")
             (repo / "unrelated.txt").write_text("unrelated", encoding="utf-8")
@@ -113,7 +113,9 @@ def run_check(
     ],
 )
 def test_supported_title_forms_pass_with_valid_ancestor(title: str) -> None:
-    code, out, err = run_check(title, "Milestone-Ancestors: {sha}")
+    milestone = "M5b" if "5b" in title.lower() else "M3b"
+    body = f"Milestone: {milestone}\nMilestone-Ancestors: {sha}"
+    code, out, err = run_check(title, body)
     assert code == 0, err
     assert "descends from" in out
 
@@ -121,7 +123,7 @@ def test_supported_title_forms_pass_with_valid_ancestor(title: str) -> None:
 def test_non_ancestor_reaches_and_fails_git_ancestry_check() -> None:
     code, out, err = run_check(
         "M3b - x",
-        "Milestone-Ancestors: {required}",
+        "Milestone: M3b\nMilestone-Ancestors: {required}",
         ancestor_ok=False,
     )
     assert code == 1
@@ -130,25 +132,35 @@ def test_non_ancestor_reaches_and_fails_git_ancestry_check() -> None:
 
 
 @pytest.mark.parametrize(
-    "title",
-    ["M5b - macOS auval", "Milestone 3b", "m3b"],
+    ("title", "milestone"),
+    [
+        ("M5b - macOS auval", "M5b"),
+        ("Milestone 3b", "M3b"),
+        ("m3b", "M3b"),
+    ],
 )
-def test_gated_titles_fail_without_ancestor_declaration(title: str) -> None:
-    code, out, err = run_check(title, "no declaration here")
+def test_gated_titles_fail_without_ancestor_declaration(
+    title: str, milestone: str
+) -> None:
+    code, out, err = run_check(title, f"Milestone: {milestone}")
     assert code == 1
     assert "Milestone-Ancestors" in err
 
 
 def test_m5b_is_not_truncated_to_m5() -> None:
     code, out, err = run_check(
-        "M5b - macOS auval", "Milestone-Ancestors: {sha}"
+        "M5b - macOS auval",
+        "Milestone: M5b\nMilestone-Ancestors: {sha}",
     )
     assert code == 0, err
     assert "M5b descends" in out
 
 
 def test_m50_is_not_mistaken_for_m5() -> None:
-    code, out, err = run_check("M50 - unrelated work", "Milestone-Ancestors: {sha}")
+    code, out, err = run_check(
+        "M50 - unrelated work",
+        "Milestone: M50\nMilestone-Ancestors: {sha}",
+    )
     assert code == 1
     assert "title identifies M50" in err
     assert "no matching future_milestones entry" in err
@@ -156,14 +168,15 @@ def test_m50_is_not_mistaken_for_m5() -> None:
 
 
 def test_identifier_embedded_in_word_is_not_a_milestone_token() -> None:
-    code, out, err = run_check("repairAM5 parser", "")
+    code, out, err = run_check("repairAM5 parser", "Milestone: none")
     assert code == 0
-    assert "skipped" in out
+    assert "explicitly declares Milestone: none" in out
 
 
 def test_multiple_distinct_milestones_in_title_are_rejected() -> None:
     code, out, err = run_check(
-        "M3b integration with M5b", "Milestone-Ancestors: {sha}"
+        "M3b integration with M5b",
+        "Milestone: M3b\nMilestone-Ancestors: {sha}",
     )
     assert code == 1
     assert "multiple milestone identifiers" in err
@@ -171,7 +184,8 @@ def test_multiple_distinct_milestones_in_title_are_rejected() -> None:
 
 def test_repeated_same_milestone_in_title_is_not_ambiguous() -> None:
     code, out, err = run_check(
-        "M3b: milestone M3b implementation", "Milestone-Ancestors: {sha}"
+        "M3b: milestone M3b implementation",
+        "Milestone: M3b\nMilestone-Ancestors: {sha}",
     )
     assert code == 0, err
 
@@ -199,7 +213,7 @@ def test_duplicate_body_milestone_declarations_are_rejected() -> None:
         "Milestone: M3b\nMilestone: M3b\nMilestone-Ancestors: {sha}",
     )
     assert code == 1
-    assert "at most one" in err
+    assert "exactly one 'Milestone:" in err
 
 
 def test_malformed_body_milestone_declaration_is_rejected() -> None:
@@ -208,12 +222,35 @@ def test_malformed_body_milestone_declaration_is_rejected() -> None:
         "Milestone: M3b extra\nMilestone-Ancestors: {sha}",
     )
     assert code == 1
-    assert "must be a valid ID" in err
+    assert "must be 'none' or a valid ID" in err
+
+
+def test_missing_milestone_classification_fails_closed() -> None:
+    code, out, err = run_check("Fix README typo", "")
+    assert code == 1
+    assert "exactly one 'Milestone:" in err
+
+
+def test_milestone_title_cannot_be_downgraded_to_none() -> None:
+    code, out, err = run_check("M3b - implementation", "Milestone: none")
+    assert code == 1
+    assert "title identifies M3b" in err
+
+
+def test_body_milestone_cannot_be_hidden_in_generic_title() -> None:
+    code, out, err = run_check(
+        "Fix parsing",
+        "Milestone: M3b\nMilestone-Ancestors: {sha}",
+    )
+    assert code == 1
+    assert "title does not identify a milestone" in err
 
 
 def test_unrecorded_predecessor_fails_closed() -> None:
     code, out, err = run_check(
-        "M4 - parsers", "Milestone-Ancestors: {sha}", record=()
+        "M4 - parsers",
+        "Milestone: M4\nMilestone-Ancestors: {sha}",
+        record=(),
     )
     assert code == 1
     assert "predecessor SHA is not recorded" in err
@@ -223,7 +260,7 @@ def test_missing_future_milestones_object_fails_closed() -> None:
     ledger = {"schema_version": 1}
     code, out, err = run_check(
         "M3b - test",
-        "Milestone-Ancestors: {sha}",
+        "Milestone: M3b\nMilestone-Ancestors: {sha}",
         ledger_data=ledger,
     )
     assert code == 1
@@ -233,7 +270,7 @@ def test_missing_future_milestones_object_fails_closed() -> None:
 def test_wrong_ledger_root_type_fails_closed() -> None:
     code, out, err = run_check(
         "M3b - test",
-        "Milestone-Ancestors: {sha}",
+        "Milestone: M3b\nMilestone-Ancestors: {sha}",
         ledger_text="[]",
     )
     assert code == 1
@@ -243,7 +280,7 @@ def test_wrong_ledger_root_type_fails_closed() -> None:
 def test_invalid_json_ledger_fails_closed() -> None:
     code, out, err = run_check(
         "M3b - test",
-        "Milestone-Ancestors: {sha}",
+        "Milestone: M3b\nMilestone-Ancestors: {sha}",
         ledger_text="{not valid json",
     )
     assert code == 1
@@ -253,14 +290,14 @@ def test_invalid_json_ledger_fails_closed() -> None:
 def test_multiple_or_malformed_ancestor_declarations_are_rejected() -> None:
     code, out, err = run_check(
         "M3b - test",
-        "Milestone-Ancestors: {sha}\nMilestone-Ancestors: {sha}",
+        "Milestone: M3b\nMilestone-Ancestors: {sha}\nMilestone-Ancestors: {sha}",
     )
     assert code == 1
     assert "exactly one" in err
 
     code, out, err = run_check(
         "M3b - test",
-        "Milestone-Ancestors: not-a-full-sha",
+        "Milestone: M3b\nMilestone-Ancestors: not-a-full-sha",
     )
     assert code == 1
     assert "full 40-character SHAs" in err
@@ -270,15 +307,24 @@ def test_multiple_or_malformed_ancestor_declarations_are_rejected() -> None:
     "title",
     ["Fix README typo", "Document the milestone ideas", "Bump dependency"],
 )
-def test_titles_without_a_milestone_token_are_skipped(title: str) -> None:
-    code, out, err = run_check(title, "")
+def test_non_milestone_titles_are_skipped_only_with_explicit_none(
+    title: str,
+) -> None:
+    code, out, err = run_check(title, "Milestone: none")
     assert code == 0
-    assert "skipped" in out
+    assert "explicitly declares Milestone: none" in out
 
 
-@pytest.mark.parametrize("title", ["Document M4b ideas", "Bump M7"])
-def test_unknown_milestone_ids_fail_closed_instead_of_skipping(title: str) -> None:
-    code, out, err = run_check(title, "Milestone-Ancestors: {sha}")
+@pytest.mark.parametrize(
+    ("title", "milestone"),
+    [("Document M4b ideas", "M4b"), ("Bump M7", "M7")],
+)
+def test_unknown_milestone_ids_fail_closed_instead_of_skipping(
+    title: str, milestone: str
+) -> None:
+    code, out, err = run_check(
+        title, f"Milestone: {milestone}\nMilestone-Ancestors: {sha}"
+    )
     assert code == 1
     assert "no matching future_milestones entry" in err
 
@@ -289,7 +335,7 @@ def test_push_event_is_explicitly_skipped() -> None:
     assert "push/non-PR event; skipped" in out
 
 
-def test_workflow_runs_gate_on_pr_edits_and_checks_pr_head() -> None:
+def test_workflow_and_template_require_explicit_classification() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
@@ -298,3 +344,7 @@ def test_workflow_runs_gate_on_pr_edits_and_checks_pr_head() -> None:
     assert "github.event.pull_request.head.sha" in workflow
     assert "fetch-depth: 0" in workflow
     assert "run: python scripts/check_milestone_ancestry.py" in workflow
+    template = (ROOT / ".github" / "pull_request_template.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Milestone: none" in template
