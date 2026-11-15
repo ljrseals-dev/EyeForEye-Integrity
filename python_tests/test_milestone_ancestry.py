@@ -256,12 +256,19 @@ def test_multiple_or_malformed_ancestor_declarations_are_rejected() -> None:
 
 @pytest.mark.parametrize(
     "title",
-    ["Fix README typo", "Document M4b ideas", "Bump M7"],
+    ["Fix README typo", "Document the milestone ideas", "Bump dependency"],
 )
-def test_titles_without_a_complete_milestone_token_are_skipped(title: str) -> None:
+def test_titles_without_a_milestone_token_are_skipped(title: str) -> None:
     code, out, err = run_check(title, "")
     assert code == 0
     assert "skipped" in out
+
+
+@pytest.mark.parametrize("title", ["Document M4b ideas", "Bump M7"])
+def test_unknown_milestone_ids_fail_closed_instead_of_skipping(title: str) -> None:
+    code, out, err = run_check(title, "Milestone-Ancestors: {sha}")
+    assert code == 1
+    assert "no matching future_milestones entry" in err
 
 
 def test_push_event_is_explicitly_skipped() -> None:
