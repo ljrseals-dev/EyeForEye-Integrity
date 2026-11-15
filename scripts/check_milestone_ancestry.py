@@ -10,19 +10,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-# A milestone is a complete title token. The explicit boundaries prevent
-# matching identifiers embedded in words, while the numeric/suffix grammar
-# ensures M5b is never truncated to M5. Unknown milestone IDs fail closed
-# against the ledger rather than silently bypassing the gate.
+# Match complete milestone tokens. Unknown IDs are rejected against the ledger,
+# rather than silently bypassing the gate. The optional suffix is part of the
+# token, so M5b cannot be truncated to M5.
 MILESTONE_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])"
-    r"(?:milestone[\\s_-]+(?P<spelled>M?\\d+[a-z]?)|(?P<short>M\\d+[a-z]?))"
+    r"(?:milestone[\s_-]+(?P<spelled>M?\d+[a-z]?)|(?P<short>M\d+[a-z]?))"
     r"(?![A-Za-z0-9_])",
     re.IGNORECASE,
 )
-BODY_MILESTONE_PATTERN = re.compile(r"(?im)^Milestone:\\s*(.*?)\\s*$")
+BODY_MILESTONE_PATTERN = re.compile(r"(?im)^Milestone:\s*(.*?)\s*$")
 ANCESTOR_DECLARATION_PATTERN = re.compile(
-    r"(?im)^Milestone-Ancestors:\\s*(.*?)\\s*$"
+    r"(?im)^Milestone-Ancestors:\s*(.*?)\s*$"
 )
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
@@ -32,7 +31,7 @@ def normalize_milestone(value: str) -> str:
     token = value.upper()
     if token.startswith("M"):
         token = token[1:]
-    suffix_match = re.fullmatch(r"(\\d+)([A-Z]?)", token)
+    suffix_match = re.fullmatch(r"(\d+)([A-Z]?)", token)
     if suffix_match is None:
         raise ValueError(f"invalid milestone identifier: {value!r}")
     number, suffix = suffix_match.groups()
