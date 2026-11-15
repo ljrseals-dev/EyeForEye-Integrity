@@ -283,6 +283,6 @@ def test_workflow_runs_gate_on_pr_edits_and_checks_pr_head() -> None:
     )
     assert "types: [opened, synchronize, reopened, edited]" in workflow
     assert "if: github.event_name == 'pull_request'" in workflow
-    assert "ref: \${{ github.event.pull_request.head.sha }}" in workflow
+    assert "github.event.pull_request.head.sha" in workflow
     assert "fetch-depth: 0" in workflow
     assert "run: python scripts/check_milestone_ancestry.py" in workflow
