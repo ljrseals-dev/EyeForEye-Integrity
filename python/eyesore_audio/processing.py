@@ -31,10 +31,23 @@ class CompressorSettings:
                 raise ValueError(f"{name} outside supported range [{low}, {high}]")
 
 def _audio(audio):
+    """Validate non-empty finite mono audio; input is retained as float64.
+
+    The current API flattens arrays with reshape(-1); multichannel audio is
+    therefore not downmixed and must not be passed as a 2-D stereo array.
+    """
     x = np.asarray(audio, dtype=np.float64).reshape(-1)
     if x.size == 0 or not np.isfinite(x).all():
         raise ValueError("audio must be non-empty and finite")
     return x
+
+def _audio_f32(audio):
+    """Validate float64 audio and reject values outside the float32 range."""
+    x64 = _audio(audio)
+    f32_max = np.finfo(np.float32).max
+    if np.any(np.abs(x64) > f32_max):
+        raise ValueError("audio overflows float32")
+    return x64.astype(np.float32)
 
 def track_f0(audio, sample_rate, min_f0_hz=65.0, max_f0_hz=500.0,
              frame_ms=40.0, hop_ms=10.0, voiced_threshold=.60):
@@ -75,7 +88,9 @@ def track_f0(audio, sample_rate, min_f0_hz=65.0, max_f0_hz=500.0,
 
 def compress_vocal(audio, sample_rate, settings=None):
     """Offline feed-forward compressor with sample-peak ceiling, not true-peak limiting."""
-    x = _audio(audio).astype(np.float32)
+    # Validate and convert before the bypass return so invalid input is never
+    # accepted merely because compression happens to be disabled.
+    x = _audio_f32(audio)
     if sample_rate <= 0: raise ValueError("sample_rate must be positive")
     cfg = settings or CompressorSettings(); cfg.validate()
     if cfg.ratio == 1 and cfg.makeup_db == 0: return x.copy()
